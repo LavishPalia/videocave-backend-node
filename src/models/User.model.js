@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
     },
     avatar: {
       type: String,
-      require: [true, "Please select an avatar image for your profile"],
+      required: [true, "Please select an avatar image for your profile"],
     },
     coverImage: { type: String },
     password: {

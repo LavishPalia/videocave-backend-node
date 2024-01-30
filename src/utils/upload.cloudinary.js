@@ -13,11 +13,10 @@ const uploadOnCloudinary = async (localFilePath) => {
     const fileMetaData = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
     });
-    console.log("Data returned by cloudinary", fileMetaData.url);
+    // console.log(fileMetaData);
 
     // run code after successful file upload
-    console.log("File uploaded successfully on cloudinary");
-
+    fs.unlinkSync(localFilePath);
     return fileMetaData; // practically only url is required in frontend
   } catch (err) {
     fs.unlinkSync(localFilePath); // remove the locally saved file as the upload operation has failed
