@@ -52,7 +52,10 @@ userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   const saltRounds = 10;
   const salt = await bcrypt.genSalt(saltRounds);
+
+  //console.time("this.password");
   this.password = await bcrypt.hash(this.password, salt);
+  //console.timeEnd("this.password");
 
   next();
 });
