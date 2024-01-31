@@ -2,8 +2,12 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/User.model.js";
-import uploadOnCloudinary from "../utils/upload.cloudinary.js";
+import {
+  uploadOnCloudinary,
+  deleteFromCloudinary,
+} from "../utils/upload.cloudinary.js";
 import jwt from "jsonwebtoken";
+import fs from "fs";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -331,6 +335,10 @@ const updateUserAvatarImage = asyncHandler(async (req, res, next) => {
     { new: true }
   ).select("-password");
 
+  // remove/delete old image after successfull update of new avatar
+  const imagePublicId = loggedInUser.avatar.split("/").pop().split(".")[0];
+  await deleteFromCloudinary(imagePublicId);
+
   res
     .status(200)
     .json(
@@ -365,6 +373,10 @@ const updateUserCoverImage = asyncHandler(async (req, res, next) => {
     },
     { new: true }
   ).select("-password");
+
+  // remove/delete old image after successfull update of new cover image
+  const imagePublicId = loggedInUser.coverImage.split("/").pop().split(".")[0];
+  await deleteFromCloudinary(imagePublicId);
 
   res
     .status(200)

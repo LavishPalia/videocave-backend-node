@@ -13,7 +13,7 @@ const uploadOnCloudinary = async (localFilePath) => {
     const fileMetaData = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
     });
-    // console.log(fileMetaData);
+    // console.log(fileMetaData.public_id);
 
     // run code after successful file upload
     fs.unlinkSync(localFilePath);
@@ -24,4 +24,13 @@ const uploadOnCloudinary = async (localFilePath) => {
   }
 };
 
-export default uploadOnCloudinary;
+const deleteFromCloudinary = async (publicId) => {
+  const response = await cloudinary.api.delete_resources(publicId, {
+    type: "upload",
+    resource_type: "image",
+  });
+
+  console.log(response);
+};
+
+export { uploadOnCloudinary, deleteFromCloudinary };
