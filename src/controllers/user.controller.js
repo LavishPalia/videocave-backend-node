@@ -7,7 +7,6 @@ import {
   deleteFromCloudinary,
 } from "../utils/upload.cloudinary.js";
 import jwt from "jsonwebtoken";
-import fs from "fs";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -385,6 +384,116 @@ const updateUserCoverImage = asyncHandler(async (req, res, next) => {
     );
 });
 
+const getUserChannelDetails = asyncHandler(async (req, res, next) => {
+  const { userName } = req.params;
+
+  if (!userName) {
+    return next(new ApiError(400, "username is missing"));
+  }
+
+  const pipeline = [
+    {
+      $match: {
+        userName: userName.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        subscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: {
+              $in: [req.user._id, "$subscribers.subscriber"],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        userName: 1,
+        fullName: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscribersCount: 1,
+        subscribedToCount: 1,
+        email: 1,
+        isSubscribed: 1,
+      },
+    },
+  ];
+
+  const channelDetails = await User.aggregate(pipeline);
+  // console.log("Channel details pipeline output \n", channelDetails);
+
+  if (!channelDetails.length) {
+    return next(
+      new ApiError(400, `Channel with the name ${userName} does not exist`)
+    );
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        channelDetails,
+        "Channel details fetched successfully"
+      )
+    );
+});
+
+const getWatchHistory = asyncHandler(async (req, res, next) => {
+  const user = req.user;
+
+  const pipeline = [
+    {
+      $match: {
+        userName: user.userName.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "userId",
+        as: "watchHistory",
+      },
+    },
+  ];
+
+  const watchHistory = await User.aggregate(pipeline);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, watchHistory, "watch history fetched successfully")
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -395,4 +504,6 @@ export {
   updateAccountDetails,
   updateUserAvatarImage,
   updateUserCoverImage,
+  getUserChannelDetails,
+  getWatchHistory,
 };

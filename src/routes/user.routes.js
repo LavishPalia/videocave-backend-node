@@ -11,6 +11,8 @@ import {
   updateUserAvatarImage,
   updateUserCoverImage,
   getLoggedInUser,
+  getUserChannelDetails,
+  getWatchHistory,
 } from "../controllers/user.controller.js";
 
 const router = express.Router();
@@ -43,5 +45,7 @@ router
   .patch(verifyToken, upload.single("coverImage"), updateUserCoverImage);
 
 router.route("/current-user").get(verifyToken, getLoggedInUser);
+router.route("/c/:userName").get(verifyToken, getUserChannelDetails);
+router.route("/history").get(verifyToken, getWatchHistory);
 
 export default router;

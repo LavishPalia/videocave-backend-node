@@ -17,11 +17,12 @@ const videoSchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      require: [true, "Please enter description of the video"],
+      required: [true, "Please enter description of the video"],
     },
     duration: {
       type: Number,
-      require: true,
+      required: true,
+      default: 0,
     },
     views: {
       type: Number,
