@@ -1,9 +1,13 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { uploadOnCloudinary } from "../utils/upload.cloudinary.js";
+import {
+  uploadOnCloudinary,
+  deleteFromCloudinary,
+} from "../utils/upload.cloudinary.js";
 import { Video } from "../models/Video.model.js";
 import { User } from "../models/User.model.js";
+import mongoose from "mongoose";
 
 const publishVideo = asyncHandler(async (req, res, next) => {
   const { title, description } = req.body;
@@ -115,4 +119,72 @@ const getVideoById = asyncHandler(async (req, res, next) => {
     );
 });
 
-export { publishVideo, getVideoById };
+const updateVideo = asyncHandler(async (req, res, next) => {
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    return next(new ApiError(400, "video id is missing."));
+  }
+
+  const { title, description } = req.body;
+
+  // get local path of thumbnail, get old thumbnail public id for deletion
+  let thumbnailLocalPath, thumbnail, oldThumbnail, thumbnailPublicId;
+  if (req.file) {
+    thumbnailLocalPath = req.file?.path;
+    thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+
+    if (!thumbnail) {
+      return next(
+        new ApiError(500, "something went wrong while uploading thumbnail")
+      );
+    }
+  
+
+  const pipeline = [
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(videoId),
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        thumbnail: 1,
+      },
+    },
+  ];
+
+  oldThumbnail = await Video.aggregate(pipeline);
+
+  thumbnailPublicId = oldThumbnail[0].thumbnail
+    .split("/")
+    .pop()
+    .split(".")[0];
+
+}
+  const updatedVideo = await Video.findByIdAndUpdate(
+    videoId,
+    {
+      title,
+      description,
+      thumbnail: thumbnail?.url,
+    },
+    { new: true }
+  );
+
+  if (!updatedVideo) {
+    return next(
+      new ApiError(500, "something went wrong while updating the video")
+    );
+  }
+
+  // delete old thumbnail from cloudinary
+  await deleteFromCloudinary(thumbnailPublicId);
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, updatedVideo, "Video updated successfully"));
+});
+
+export { publishVideo, getVideoById, updateVideo };
