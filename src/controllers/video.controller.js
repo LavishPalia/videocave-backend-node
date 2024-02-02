@@ -139,30 +139,28 @@ const updateVideo = asyncHandler(async (req, res, next) => {
         new ApiError(500, "something went wrong while uploading thumbnail")
       );
     }
-  
 
-  const pipeline = [
-    {
-      $match: {
-        _id: new mongoose.Types.ObjectId(videoId),
+    const pipeline = [
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(videoId),
+        },
       },
-    },
-    {
-      $project: {
-        _id: 0,
-        thumbnail: 1,
+      {
+        $project: {
+          _id: 0,
+          thumbnail: 1,
+        },
       },
-    },
-  ];
+    ];
 
-  oldThumbnail = await Video.aggregate(pipeline);
+    oldThumbnail = await Video.aggregate(pipeline);
 
-  thumbnailPublicId = oldThumbnail[0].thumbnail
-    .split("/")
-    .pop()
-    .split(".")[0];
-
-}
+    thumbnailPublicId = oldThumbnail[0].thumbnail
+      .split("/")
+      .pop()
+      .split(".")[0];
+  }
   const updatedVideo = await Video.findByIdAndUpdate(
     videoId,
     {
@@ -187,4 +185,49 @@ const updateVideo = asyncHandler(async (req, res, next) => {
     .json(new ApiResponse(200, updatedVideo, "Video updated successfully"));
 });
 
-export { publishVideo, getVideoById, updateVideo };
+const deleteVideo = asyncHandler(async (req, res, next) => {
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    return next(new ApiError(400, "video id is missing."));
+  }
+
+  // delete video and thumbnail from cloudinary
+
+  const pipeline = [
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(videoId),
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        videoFile: 1,
+        thumbnail: 1,
+      },
+    },
+  ];
+
+  const data = await Video.aggregate(pipeline);
+
+  const videoPublicId = data[0].videoFile.split("/").pop().split(".")[0];
+  const thumbnailPublicId = data[0].thumbnail.split("/").pop().split(".")[0];
+
+  await deleteFromCloudinary(videoPublicId);
+  await deleteFromCloudinary(thumbnailPublicId);
+
+  const deletedVideo = await Video.findByIdAndDelete(videoId);
+
+  if (!deletedVideo) {
+    return next(
+      new ApiError(500, "something went wrong while deleting the video")
+    );
+  }
+
+  console.log(deletedVideo);
+
+  res.status(200).json(new ApiResponse(200, {}, "video deleted successfully"));
+});
+
+export { publishVideo, getVideoById, updateVideo, deleteVideo };

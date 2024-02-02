@@ -1,6 +1,7 @@
 import express from "express";
 import { upload } from "../middlewares/multer.middleware.js";
 import {
+  deleteVideo,
   getVideoById,
   publishVideo,
   updateVideo,
@@ -9,8 +10,8 @@ import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
+router.use(verifyToken);
 router.route("/").post(
-  verifyToken,
   upload.fields([
     {
       name: "videoFile",
@@ -24,11 +25,10 @@ router.route("/").post(
   publishVideo
 );
 
-router.use(verifyToken);
-
 router
   .route("/:videoId")
   .get(getVideoById)
-  .patch(upload.single("thumbnail"), updateVideo);
+  .patch(upload.single("thumbnail"), updateVideo)
+  .delete(deleteVideo);
 
 export default router;
