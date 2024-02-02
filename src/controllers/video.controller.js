@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadOnCloudinary } from "../utils/upload.cloudinary.js";
 import { Video } from "../models/Video.model.js";
+import { User } from "../models/User.model.js";
 
 const publishVideo = asyncHandler(async (req, res, next) => {
   const { title, description } = req.body;
@@ -58,4 +59,60 @@ const publishVideo = asyncHandler(async (req, res, next) => {
     .json(new ApiResponse(200, videoDoc, "Video published successfully"));
 });
 
-export { publishVideo };
+const getVideoById = asyncHandler(async (req, res, next) => {
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    return next(new ApiError(400, "video id is missing."));
+  }
+
+  const video = await Video.findById(videoId);
+  if (!video) {
+    return next(
+      new ApiError(500, "something went wrong while fetching the video from DB")
+    );
+  }
+
+  // check if the videoId already exists in the watchHistory of the user
+  const currentWatchHistory = req.user.watchHistory;
+
+  const index = currentWatchHistory.indexOf(videoId);
+  if (index > -1) {
+    currentWatchHistory.splice(index, 1);
+  }
+
+  currentWatchHistory.push(videoId);
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        watchHistory: currentWatchHistory,
+      },
+    },
+    { new: true }
+  );
+
+  if (!updatedUser) {
+    return next(
+      new ApiError(
+        500,
+        "something went wrong while updating users watch history"
+      )
+    );
+  }
+
+  // console.log("watch history updated user: \n", updatedUser.watchHistory);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        video,
+        `video with id ${videoId} fetched successfully`
+      )
+    );
+});
+
+export { publishVideo, getVideoById };

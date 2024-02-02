@@ -467,30 +467,65 @@ const getUserChannelDetails = asyncHandler(async (req, res, next) => {
 });
 
 const getWatchHistory = asyncHandler(async (req, res, next) => {
-  const user = req.user;
-
   const pipeline = [
     {
       $match: {
-        userName: user.userName.toLowerCase(),
+        _id: req.user._id,
       },
     },
     {
       $lookup: {
         from: "videos",
         localField: "watchHistory",
-        foreignField: "userId",
+        foreignField: "_id",
         as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    userName: 1,
+                    fullName: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          },
+        ],
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        watchHistory: 1,
       },
     },
   ];
 
-  const watchHistory = await User.aggregate(pipeline);
+  const user = await User.aggregate(pipeline);
+  // console.log(user)
 
   res
     .status(200)
     .json(
-      new ApiResponse(200, watchHistory, "watch history fetched successfully")
+      new ApiResponse(
+        200,
+        user[0].watchHistory,
+        "watch history fetched successfully"
+      )
     );
 });
 
