@@ -2,6 +2,7 @@ import express from "express";
 import { upload } from "../middlewares/multer.middleware.js";
 import {
   deleteVideo,
+  getAllVideos,
   getVideoById,
   publishVideo,
   updateVideo,
@@ -30,5 +31,7 @@ router
   .get(getVideoById)
   .patch(upload.single("thumbnail"), updateVideo)
   .delete(deleteVideo);
+
+router.route("/").get(getAllVideos);
 
 export default router;

@@ -329,7 +329,9 @@ const updateUserAvatarImage = asyncHandler(async (req, res, next) => {
   const updatedUser = await User.findByIdAndUpdate(
     loggedInUser._id,
     {
-      avatar: avatar.url,
+      $set: {
+        avatar: avatar.url,
+      },
     },
     { new: true }
   ).select("-password");
@@ -368,7 +370,9 @@ const updateUserCoverImage = asyncHandler(async (req, res, next) => {
   const updatedUser = await User.findByIdAndUpdate(
     loggedInUser._id,
     {
-      coverImage: coverImage.url,
+      $set: {
+        coverImage: coverImage.url,
+      },
     },
     { new: true }
   ).select("-password");

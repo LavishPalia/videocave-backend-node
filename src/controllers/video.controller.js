@@ -7,7 +7,7 @@ import {
 } from "../utils/upload.cloudinary.js";
 import { Video } from "../models/Video.model.js";
 import { User } from "../models/User.model.js";
-import mongoose from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 
 const publishVideo = asyncHandler(async (req, res, next) => {
   const { title, description } = req.body;
@@ -70,12 +70,20 @@ const getVideoById = asyncHandler(async (req, res, next) => {
     return next(new ApiError(400, "video id is missing."));
   }
 
+  if (!isValidObjectId(videoId)) {
+    return next(new ApiError(400, "invalid video id"));
+  }
+
   const video = await Video.findById(videoId);
   if (!video) {
-    return next(
-      new ApiError(500, "something went wrong while fetching the video from DB")
-    );
+    return next(new ApiError(500, `video with id ${videoId} does not exist`));
   }
+
+  video.views = video.views + 1;
+
+  await video.save({ validateBeforeSave: false });
+
+  // TODO: write a pipeline to fetch details like owner, subscriber count, isSubscribed, like count etc
 
   // check if the videoId already exists in the watchHistory of the user
   const currentWatchHistory = req.user.watchHistory;
@@ -126,6 +134,10 @@ const updateVideo = asyncHandler(async (req, res, next) => {
     return next(new ApiError(400, "video id is missing."));
   }
 
+  if (!isValidObjectId(videoId)) {
+    return next(new ApiError(400, "invalid video id"));
+  }
+
   const { title, description } = req.body;
 
   // get local path of thumbnail, get old thumbnail public id for deletion
@@ -164,17 +176,17 @@ const updateVideo = asyncHandler(async (req, res, next) => {
   const updatedVideo = await Video.findByIdAndUpdate(
     videoId,
     {
-      title,
-      description,
-      thumbnail: thumbnail?.url,
+      $set: {
+        title,
+        description,
+        thumbnail: thumbnail?.url,
+      },
     },
     { new: true }
   );
 
   if (!updatedVideo) {
-    return next(
-      new ApiError(500, "something went wrong while updating the video")
-    );
+    return next(new ApiError(500, `video with id ${videoId} does not exist`));
   }
 
   // delete old thumbnail from cloudinary
@@ -192,27 +204,33 @@ const deleteVideo = asyncHandler(async (req, res, next) => {
     return next(new ApiError(400, "video id is missing."));
   }
 
-  // delete video and thumbnail from cloudinary
+  if (!isValidObjectId(videoId)) {
+    return next(new ApiError(400, "invalid video id"));
+  }
 
-  const pipeline = [
-    {
-      $match: {
-        _id: new mongoose.Types.ObjectId(videoId),
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        videoFile: 1,
-        thumbnail: 1,
-      },
-    },
-  ];
+  // if the video with provided id is deleted then retuen error
+  let video = await Video.findById(videoId);
 
-  const data = await Video.aggregate(pipeline);
+  if (!video) {
+    return next(
+      new ApiError(400, `video with id ${videoId} is already deleted`)
+    );
+  }
 
-  const videoPublicId = data[0].videoFile.split("/").pop().split(".")[0];
-  const thumbnailPublicId = data[0].thumbnail.split("/").pop().split(".")[0];
+  // console.log(req.user._id.toString() === video.owner.toString());
+
+  // check if the user has the authority to delete the video
+  if (req.user._id.toString() !== video.owner.toString()) {
+    return next(
+      new ApiError(
+        401,
+        "You do not have permission to perform this action on this resource"
+      )
+    );
+  }
+  // delete video and thumbnail from cloudinary before deleting the document from DB
+  const videoPublicId = video.videoFile.split("/").pop().split(".")[0];
+  const thumbnailPublicId = video.thumbnail.split("/").pop().split(".")[0];
 
   await deleteFromCloudinary(videoPublicId);
   await deleteFromCloudinary(thumbnailPublicId);
@@ -220,14 +238,74 @@ const deleteVideo = asyncHandler(async (req, res, next) => {
   const deletedVideo = await Video.findByIdAndDelete(videoId);
 
   if (!deletedVideo) {
-    return next(
-      new ApiError(500, "something went wrong while deleting the video")
-    );
+    return next(new ApiError(500, `video with id ${videoId} does not exist`));
   }
 
-  console.log(deletedVideo);
+  console.log("Deleted video data: \n", deletedVideo);
 
   res.status(200).json(new ApiResponse(200, {}, "video deleted successfully"));
 });
 
-export { publishVideo, getVideoById, updateVideo, deleteVideo };
+const getAllVideos = asyncHandler(async (req, res, next) => {
+  const {
+    sortBy = "createdAt",
+    limit = 5,
+    query,
+    page = 1,
+    sortType = 1,
+  } = req.query;
+  // console.table([page, limit, query, sortBy, sortType, userId]);
+
+  const pipeline = [
+    {
+      $match: {
+        $text: {
+          $search: query,
+          $language: "en",
+        },
+      },
+    },
+  ];
+
+  const searchedVideos = await Video.aggregate(pipeline);
+  // console.log("videos returned by aggreagtion pipeline \n", searchedVideos);
+
+  const options = {
+    page,
+    limit,
+    sort: sortBy,
+    pagination: true,
+  };
+
+  if (!searchedVideos) {
+    return next(new ApiError(400, "No videos present in the DB"));
+  }
+  const response = await Video.aggregatePaginate(searchedVideos, options);
+
+  if (parseInt(sortType) === -1) {
+    response.docs = response.docs.reverse();
+  }
+
+  // console.log("pagination results \n: ", response);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        count: response.docs.length,
+        currentPage: response.page,
+        nextPage: response.nextPage,
+        prevPage: response.prevPage,
+        totalPages: response.totalPages,
+        hasNextPage: response.hasNextPage,
+        hasPrevPage: response.hasPrevPage,
+        totaldocs: response.totalDocs,
+        pagingCounter: response.pagingCounter,
+        searchedVideos: response.docs,
+      },
+      "All videos fetched successfully"
+    )
+  );
+});
+
+export { publishVideo, getVideoById, updateVideo, deleteVideo, getAllVideos };
