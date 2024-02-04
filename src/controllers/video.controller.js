@@ -127,6 +127,63 @@ const getVideoById = asyncHandler(async (req, res, next) => {
     );
 });
 
+const getVideosByUserId = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return next(new ApiError(400, "user id is missing"));
+  }
+
+  if (!isValidObjectId(userId)) {
+    return next(new ApiError(400, "Invalid User ID"));
+  }
+
+  const pipeline = [
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    },
+    {
+      $group: {
+        _id: "owner",
+        videos: {
+          $push: "$_id",
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "videos",
+        foreignField: "_id",
+        as: "allVideos",
+      },
+    },
+    {
+      $project: {
+        allVideos: 1,
+      },
+    },
+  ];
+
+  const videos = await Video.aggregate(pipeline);
+
+  if (!videos) {
+    return next(new ApiError("user does not exist in the DB"));
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        videos[0].allVideos,
+        "all the videos for the user fetched successfully"
+      )
+    );
+});
+
 const updateVideo = asyncHandler(async (req, res, next) => {
   const { videoId } = req.params;
 
@@ -343,4 +400,5 @@ export {
   deleteVideo,
   getAllVideos,
   togglePublishStatus,
+  getVideosByUserId,
 };

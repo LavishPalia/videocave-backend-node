@@ -4,6 +4,7 @@ import {
   deleteVideo,
   getAllVideos,
   getVideoById,
+  getVideosByUserId,
   publishVideo,
   togglePublishStatus,
   updateVideo,
@@ -26,6 +27,8 @@ router.route("/").post(
   ]),
   publishVideo
 );
+
+router.route("/u/:userId").get(getVideosByUserId);
 
 router
   .route("/:videoId")
