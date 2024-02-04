@@ -1,6 +1,7 @@
 import express from "express";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 import {
+  getSubscribedChannels,
   getUserChannelSubscribers,
   toogleSubscription,
 } from "../controllers/subscription.controller.js";
@@ -13,5 +14,7 @@ router
   .route("/c/:channelId")
   .post(toogleSubscription)
   .get(getUserChannelSubscribers);
+
+router.route("/u/:subscriberId").get(getSubscribedChannels);
 
 export default router;

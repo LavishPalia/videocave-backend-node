@@ -308,4 +308,39 @@ const getAllVideos = asyncHandler(async (req, res, next) => {
   );
 });
 
-export { publishVideo, getVideoById, updateVideo, deleteVideo, getAllVideos };
+const togglePublishStatus = asyncHandler(async (req, res, next) => {
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    return next(new ApiError(400, "video id is missing."));
+  }
+
+  if (!isValidObjectId(videoId)) {
+    return next(new ApiError(400, "invalid video id"));
+  }
+
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    return next(
+      new ApiError(400, `video with id ${videoId} doesn't exist in DB.`)
+    );
+  }
+
+  video.isPublished = !video.isPublished;
+
+  await video.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, video, "Video publish status updated!"));
+});
+
+export {
+  publishVideo,
+  getVideoById,
+  updateVideo,
+  deleteVideo,
+  getAllVideos,
+  togglePublishStatus,
+};

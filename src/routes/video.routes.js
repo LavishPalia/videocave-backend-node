@@ -5,6 +5,7 @@ import {
   getAllVideos,
   getVideoById,
   publishVideo,
+  togglePublishStatus,
   updateVideo,
 } from "../controllers/video.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
@@ -31,6 +32,8 @@ router
   .get(getVideoById)
   .patch(upload.single("thumbnail"), updateVideo)
   .delete(deleteVideo);
+
+router.route("/toggle/publish/:videoId").patch(togglePublishStatus);
 
 router.route("/").get(getAllVideos);
 

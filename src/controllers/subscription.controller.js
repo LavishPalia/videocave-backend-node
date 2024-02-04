@@ -152,4 +152,86 @@ const getUserChannelSubscribers = asyncHandler(async (req, res, next) => {
   );
 });
 
-export { toogleSubscription, getUserChannelSubscribers };
+const getSubscribedChannels = asyncHandler(async (req, res, next) => {
+  const { subscriberId } = req.params;
+
+  if (!subscriberId) {
+    return next(new ApiError(400, "Subscriber Id is missing"));
+  }
+
+  if (!isValidObjectId(subscriberId)) {
+    return next(new ApiError(400, "Invlaid  Subscriber ID"));
+  }
+
+  const subscriber = await User.findById(subscriberId);
+
+  if (!subscriber) {
+    return next(new ApiError(400, "Subscriber doesn't exist in DB"));
+  }
+
+  const pipeline = [
+    {
+      $match: {
+        subscriber: new mongoose.Types.ObjectId(subscriberId),
+      },
+    },
+    {
+      $group: {
+        _id: "$subscriber",
+        subscribedArray: {
+          $push: "$channel",
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "subscribedArray",
+        foreignField: "_id",
+        as: "subscribedChannelList",
+        pipeline: [
+          {
+            $project: {
+              _id: 0,
+              userName: 1,
+              fullName: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $addFields: {
+        totalSubscribedChannels: {
+          $size: "$subscribedArray",
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        subscribedChannelList: 1,
+        totalSubscribedChannels: 1,
+      },
+    },
+  ];
+
+  const subscribedChannels = await Subscription.aggregate(pipeline);
+
+  // console.log("subscribed channels list \n", subscribedChannels);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        subscribedChannels: subscribedChannels[0]?.subscribedChannelList || [],
+        totalSubscribedChannels:
+          subscribedChannels[0]?.totalSubscribedChannels || 0,
+      },
+      "channel subscribers fetched successfully"
+    )
+  );
+});
+
+export { toogleSubscription, getUserChannelSubscribers, getSubscribedChannels };
