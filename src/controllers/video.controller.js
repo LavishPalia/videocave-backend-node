@@ -178,7 +178,7 @@ const getVideosByUserId = asyncHandler(async (req, res, next) => {
     .json(
       new ApiResponse(
         200,
-        videos[0].allVideos,
+        { videos: videos[0].allVideos },
         "all the videos for the user fetched successfully"
       )
     );
