@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Like } from "../models/Like.model.js";
 import { Video } from "../models/Video.model.js";
 import { Comment } from "../models/Comment.model.js";
+import { Tweet } from "../models/Tweet.model.js";
 import mongoose, { isValidObjectId } from "mongoose";
 
 const toggleVideoLike = asyncHandler(async (req, res, next) => {
@@ -85,7 +86,96 @@ const toggleCommentLike = asyncHandler(async (req, res, next) => {
 
   res.status(200).json(new ApiResponse(200, likeDoc, "comment like added"));
 });
-const toggleTweetLike = asyncHandler(async (req, res, next) => {});
-const getLikedVideos = asyncHandler(async (req, res, next) => {});
+
+const toggleTweetLike = asyncHandler(async (req, res, next) => {
+  const { tweetId } = req.params;
+
+  if (!tweetId) {
+    return next(new ApiError(400, "tweet id is missing."));
+  }
+
+  if (!isValidObjectId(tweetId)) {
+    return next(new ApiError(400, "invalid video id"));
+  }
+
+  const tweet = await Tweet.findById(tweetId);
+  if (!tweet) {
+    return next(new ApiError(500, `tweet with id ${tweetId} does not exist`));
+  }
+  //   console.log(req.user);
+
+  // check if the video is already liked
+  const alreadyLiked = await Like.findOne({
+    likedBy: req.user._id,
+    tweet: tweetId,
+  });
+
+  if (alreadyLiked) {
+    // remove like
+    await Like.deleteOne(alreadyLiked);
+
+    return res.status(200).json(new ApiResponse(200, {}, "Tweet like removed"));
+  }
+
+  const likeDoc = await Like.create({
+    tweet: tweetId,
+    likedBy: req.user._id,
+  });
+
+  res.status(200).json(new ApiResponse(200, likeDoc, "tweet like added"));
+});
+
+const getLikedVideos = asyncHandler(async (req, res, next) => {
+  if (!isValidObjectId(req.user._id)) {
+    return next(new ApiError(400, "Invalid User Id"));
+  }
+
+  const pipeline = [
+    {
+      $match: {
+        likedBy: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        data: {
+          $push: "$video",
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "data",
+        foreignField: "_id",
+        as: "likedVideosData",
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        likedVideosData: 1,
+      },
+    },
+  ];
+
+  const likedVideos = await Like.aggregate(pipeline);
+
+  if (!likedVideos) {
+    return next(new ApiError(404, "No Likes Found!"));
+  }
+  // console.log("Videos liked by the user", likedVideos);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { userLikedVideos: likedVideos[0]?.likedVideosData || [] },
+        "liked videos fetched successfully"
+      )
+    );
+});
 
 export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };
