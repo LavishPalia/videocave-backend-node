@@ -23,13 +23,36 @@ const getVideoComments = asyncHandler(async (req, res) => {
     return next(new ApiError(500, `video with id ${videoId} does not exist`));
   }
 
-  const comments = await Comment.find({ video: videoId });
+  const pipeline = [
+    { $match: { video: new mongoose.Types.ObjectId(videoId) } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "userDetails",
+        pipeline: [
+          {
+            $project: {
+              _id: 0,
+              userName: 1,
+              fullName: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+  ];
+
+  // do not use await here because we need to pass the filter created in this step to aggregatePaginate()
+  const comments = Comment.aggregate(pipeline);
 
   if (!comments) {
     return next(new ApiError(404, "no comments found fot this video"));
   }
+  // console.log(comments);
 
-  //   console.log(comments);
   const options = {
     page,
     limit,
@@ -38,20 +61,22 @@ const getVideoComments = asyncHandler(async (req, res) => {
 
   const response = await Comment.aggregatePaginate(comments, options);
 
+  // console.log("\n pagination output: \n", response);
+
   res.status(200).json(
     new ApiResponse(
       200,
       {
-        count: response.docs.length,
+        totaldocs: response.totalDocs,
+        count: response.docs?.length,
+        totalPages: response.totalPages,
         currentPage: response.page,
         nextPage: response.nextPage,
         prevPage: response.prevPage,
-        totalPages: response.totalPages,
         hasNextPage: response.hasNextPage,
         hasPrevPage: response.hasPrevPage,
-        totaldocs: response.totalDocs,
         pagingCounter: response.pagingCounter,
-        videosComments: response.docs,
+        videoComments: response.docs,
       },
       "video comments fetched successfully"
     )

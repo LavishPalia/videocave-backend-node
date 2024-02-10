@@ -231,8 +231,8 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res, next) => {
   const updatedPlaylist = await Playlist.findByIdAndUpdate(
     playlistId,
     {
-      $unset: {
-        videos: videoId,
+      $pull: {
+        videos: videoId, // $pull deletes the field from the document unlike $unset that makes the field empty but doesn't remove it
       },
     },
     { new: true }

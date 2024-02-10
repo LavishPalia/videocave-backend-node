@@ -324,7 +324,8 @@ const getAllVideos = asyncHandler(async (req, res, next) => {
     },
   ];
 
-  const searchedVideos = await Video.aggregate(pipeline);
+  // do not use await here because we need to pass the filter created in this step to aggregatePaginate()
+  const searchedVideos = Video.aggregate(pipeline);
   // console.log("videos returned by aggreagtion pipeline \n", searchedVideos);
 
   const options = {
