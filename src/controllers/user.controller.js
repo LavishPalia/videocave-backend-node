@@ -7,7 +7,7 @@ import {
   deleteFromCloudinary,
 } from "../utils/upload.cloudinary.js";
 import jwt from "jsonwebtoken";
-import { validationResult, matchedData } from "express-validator";
+import { validationResult } from "express-validator";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -121,17 +121,19 @@ const loginUser = asyncHandler(async (req, res, next) => {
     send success response
   */
 
-  const { userName, email, password } = req.body;
+  const errors = validationResult(req);
 
-  // TODO: check for noSQL query injection, for example {username": {$gt:""" }}
-  console.log(userName, email, password);
+  if (!errors.isEmpty()) {
+    return next(
+      new ApiError(422, "Please enter all the required fields", errors.array())
+    );
+  }
+
+  const { userName, email, password } = req.body;
+  // console.log(userName, email, password);
 
   if (!email && !userName) {
     return next(new ApiError(400, "Email or username is missing"));
-  }
-
-  if (!password) {
-    return next(new ApiError(400, "Email or Password is missing"));
   }
 
   const username = userName ? userName.toLowerCase() : "";
@@ -256,6 +258,14 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
 });
 
 const updateUserPassword = asyncHandler(async (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return next(
+      new ApiError(422, "Please enter all the required fields", errors.array())
+    );
+  }
+
   const { oldPassword, newPassword, confirmNewPassword } = req.body;
 
   if (!(oldPassword && newPassword && confirmNewPassword)) {
@@ -295,6 +305,14 @@ const getLoggedInUser = asyncHandler(async (req, res, next) => {
 });
 
 const updateAccountDetails = asyncHandler(async (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return next(
+      new ApiError(422, "Please enter all the required fields", errors.array())
+    );
+  }
+
   const { email, fullName } = req.body;
 
   if (!(email || fullName)) {
@@ -399,6 +417,14 @@ const updateUserCoverImage = asyncHandler(async (req, res, next) => {
 });
 
 const getUserChannelDetails = asyncHandler(async (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return next(
+      new ApiError(422, "Please enter all the required fields", errors.array())
+    );
+  }
+
   const { userName } = req.params;
 
   if (!userName) {
@@ -531,6 +557,10 @@ const getWatchHistory = asyncHandler(async (req, res, next) => {
 
   const user = await User.aggregate(pipeline);
   // console.log(user)
+
+  if (!user) {
+    return next(new ApiError(401, "unauthorized access"));
+  }
 
   res
     .status(200)
