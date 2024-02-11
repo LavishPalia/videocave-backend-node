@@ -7,6 +7,7 @@ import {
   deleteFromCloudinary,
 } from "../utils/upload.cloudinary.js";
 import jwt from "jsonwebtoken";
+import { validationResult, matchedData } from "express-validator";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -29,16 +30,17 @@ const generateAccessAndRefreshToken = async (userId) => {
 };
 
 const registerUser = asyncHandler(async (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return next(
+      new ApiError(422, "Please enter all the required fields", errors.array())
+    );
+  }
+
   const { userName, email, password, fullName } = req.body;
 
-  // TODO: check data validation/sanity using express validator
-  if (
-    [fullName, userName, email, password].some(
-      (field) => field?.trim() === undefined || field?.trim() === ""
-    )
-  ) {
-    return next(new ApiError(400, "Please enter the required fields"));
-  }
+  // console.log(userName, email, password, fullName);
 
   const username = userName.toLowerCase();
 
@@ -49,10 +51,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
   if (existingUser) {
     return next(new ApiError(400, "Email or username is taken"));
   }
-
-  if (!req.files || !req.files.avatar) {
-    return next(new ApiError(400, "Please select an avatar image"));
-  }
+  // avatar will definitely be present at this point courtsey express validator
   const avatarLocalPath = req.files?.avatar[0]?.path;
 
   let coverImageLocalPath;
@@ -73,12 +72,20 @@ const registerUser = asyncHandler(async (req, res, next) => {
   // console.timeEnd("avatar upload");
 
   if (!avatar) {
-    return next(new ApiError(400, "Avatar file is required"));
+    return next(
+      new ApiError(500, "Something went wrong while uploading avatar image")
+    );
   }
 
   // console.time("coverImage upload");
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
   // console.timeEnd("coverImage upload");
+
+  if (!coverImage) {
+    return next(
+      new ApiError(500, "Something went wrong while uploading cover image")
+    );
+  }
 
   const user = await User.create({
     userName: userName.toLowerCase(),
@@ -115,6 +122,9 @@ const loginUser = asyncHandler(async (req, res, next) => {
   */
 
   const { userName, email, password } = req.body;
+
+  // TODO: check for noSQL query injection, for example {username": {$gt:""" }}
+  console.log(userName, email, password);
 
   if (!email && !userName) {
     return next(new ApiError(400, "Email or username is missing"));

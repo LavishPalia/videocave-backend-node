@@ -14,6 +14,7 @@ import {
   getUserChannelDetails,
   getWatchHistory,
 } from "../controllers/user.controller.js";
+import { check, checkSchema } from "express-validator";
 
 const router = express.Router();
 
@@ -28,6 +29,35 @@ router.route("/register").post(
       maxCount: 1,
     },
   ]),
+  [
+    check(
+      "userName",
+      "username should not be empty and without any special characters"
+    )
+      .trim()
+      .isAlphanumeric(),
+    check("email", "Please enter a valid email address").trim().isEmail(),
+    check(
+      "fullName",
+      "Full Name must be atleast 3 characters and atmost 50 characters"
+    )
+      .trim()
+      .isLength({ min: 3, max: 50 }),
+    check(
+      "password",
+      "Password must contain one uppercase, one lowercase, one special char, one digit and min 8 chars long"
+    )
+      .trim()
+      .isStrongPassword(),
+    checkSchema({
+      avatar: {
+        custom: {
+          options: (_value, { req, path }) => !!req.files[path],
+          errorMessage: "Please select an avatar image for your account",
+        },
+      },
+    }),
+  ],
   registerUser
 );
 

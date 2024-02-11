@@ -2,8 +2,8 @@ class ApiError extends Error {
   constructor(
     statusCode,
     message = "Internal server error",
-    errStack = "",
-    errors = []
+    errors = [],
+    errStack = ""
   ) {
     super(message);
 
@@ -21,4 +21,4 @@ class ApiError extends Error {
   }
 }
 
-export  {ApiError};
+export { ApiError };
