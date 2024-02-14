@@ -13,6 +13,8 @@ import {
   getLoggedInUser,
   getUserChannelDetails,
   getWatchHistory,
+  clearWatchHistory,
+  deleteVideoFromWatchHistory,
 } from "../controllers/user.controller.js";
 import { check, checkSchema } from "express-validator";
 
@@ -147,5 +149,9 @@ router
     getUserChannelDetails
   );
 router.route("/history").get(verifyToken, getWatchHistory);
+router
+  .route("/history/clear/:videoId")
+  .patch(verifyToken, deleteVideoFromWatchHistory);
+router.route("/history/clear/all").patch(verifyToken, clearWatchHistory);
 
 export default router;

@@ -8,6 +8,7 @@ import {
 } from "../utils/upload.cloudinary.js";
 import jwt from "jsonwebtoken";
 import { validationResult } from "express-validator";
+import { isValidObjectId } from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -573,6 +574,68 @@ const getWatchHistory = asyncHandler(async (req, res, next) => {
     );
 });
 
+const deleteVideoFromWatchHistory = asyncHandler(async (req, res, next) => {
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    return next(new ApiError(400, "No Video ID provided"));
+  }
+
+  if (!isValidObjectId(videoId)) {
+    return next(new ApiError(400, "Invalid Video ID"));
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $pull: {
+        watchHistory: videoId,
+      },
+    },
+    { new: true }
+  );
+
+  if (!user) {
+    return next(new ApiError(404, "User not found"));
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user.watchHistory,
+        "Video deleted from Watch History"
+      )
+    );
+});
+
+const clearWatchHistory = asyncHandler(async (req, res, next) => {
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $unset: {
+        watchHistory: 1,
+      },
+    },
+    { new: true }
+  );
+
+  if (!user) {
+    return next(new ApiError(404, "User not found in DB"));
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user.watchHistory,
+        "watch history cleared successfully"
+      )
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -585,4 +648,6 @@ export {
   updateUserCoverImage,
   getUserChannelDetails,
   getWatchHistory,
+  deleteVideoFromWatchHistory,
+  clearWatchHistory,
 };
