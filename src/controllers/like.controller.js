@@ -178,4 +178,64 @@ const getLikedVideos = asyncHandler(async (req, res, next) => {
     );
 });
 
-export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };
+const getVideoLikeCount = asyncHandler(async (req, res, next) => {
+  const { videoId } = req.params;
+
+  if (!videoId) {
+    return next(new ApiError(400, "video id is missing."));
+  }
+
+  if (!isValidObjectId(videoId)) {
+    return next(new ApiError(400, "invalid video id"));
+  }
+
+  const pipeline = [
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(videoId),
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "totalLikes",
+      },
+    },
+    {
+      $addFields: {
+        totalLikeCount: {
+          $size: "$totalLikes",
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        totalLikeCount: 1,
+      },
+    },
+  ];
+
+  const video = await Video.aggregate(pipeline);
+  // console.log(video);
+
+  if (!video) {
+    return next(new ApiError(404, "Video not found"));
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, { videoLikes: video[0].totalLikeCount }, "testing")
+    );
+});
+
+export {
+  toggleCommentLike,
+  toggleTweetLike,
+  toggleVideoLike,
+  getLikedVideos,
+  getVideoLikeCount,
+};
